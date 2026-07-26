@@ -145,8 +145,11 @@ SubtargetFeatures ELFObjectFileBase::getMIPSFeatures() const {
   case ELF::EF_MIPS_MACH_OCTEON:
     Features.AddFeature("cnmips");
     break;
+  case ELF::EF_MIPS_MACH_5900:
+    Features.AddFeature("r5900");
+    break;
   default:
-    llvm_unreachable("Unknown EF_MIPS_ARCH value");
+    llvm_unreachable("Unknown EF_MIPS_MACH value");
   }
 
   if (PlatformFlags & ELF::EF_MIPS_ARCH_ASE_M16)
