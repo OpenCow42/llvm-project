@@ -308,6 +308,7 @@ StringRef Triple::getOSTypeName(OSType Kind) {
   case NaCl: return "nacl";
   case NetBSD: return "netbsd";
   case OpenBSD: return "openbsd";
+  case PS2: return "ps2";
   case PS4: return "ps4";
   case PS5: return "ps5";
   case RTEMS: return "rtems";
@@ -716,6 +717,7 @@ static Triple::OSType parseOS(StringRef OSName) {
       .StartsWith("cuda", Triple::CUDA)
       .StartsWith("nvcl", Triple::NVCL)
       .StartsWith("amdhsa", Triple::AMDHSA)
+      .StartsWith("ps2", Triple::PS2)
       .StartsWith("ps4", Triple::PS4)
       .StartsWith("ps5", Triple::PS5)
       .StartsWith("elfiamcu", Triple::ELFIAMCU)

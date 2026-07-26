@@ -69,14 +69,17 @@ public:
         UseIndirectJumpHazard(false), FPMode(FPXX) {
     TheCXXABI.set(TargetCXXABI::GenericMIPS);
 
-    if (Triple.isMIPS32())
+    if (Triple.isPS2())
+      setABI("n32");
+    else if (Triple.isMIPS32())
       setABI("o32");
     else if (Triple.isABIN32())
       setABI("n32");
     else
       setABI("n64");
 
-    CPU = ABI == "o32" ? "mips32r2" : "mips64r2";
+    CPU = Triple.isPS2() ? "r5900"
+                         : (ABI == "o32" ? "mips32r2" : "mips64r2");
 
     CanUseBSDABICalls = Triple.isOSFreeBSD() ||
                         Triple.isOSOpenBSD();
@@ -110,6 +113,8 @@ public:
 
     if (Name == "n32") {
       setN32ABITypes();
+      if (getTriple().isPS2())
+        setPS2ABITypes();
       ABI = Name;
       return true;
     }
@@ -119,6 +124,17 @@ public:
       return true;
     }
     return false;
+  }
+
+  void setPS2ABITypes() {
+    // PS2 newlib follows the GCC R5900 ABI and represents long double as
+    // IEEE double rather than the generic N32 IEEE quad type.
+    LongDoubleWidth = LongDoubleAlign = 64;
+    LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+
+    // The R5900 has no LL/SC instructions. Atomic operations must be
+    // lowered to out-of-line helpers rather than advertised as lock-free.
+    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 0;
   }
 
   void setO32ABITypes() {
@@ -174,7 +190,14 @@ public:
 
   bool setCPU(const std::string &Name) override {
     CPU = Name;
-    return isValidCPUName(Name);
+    if (!isValidCPUName(Name))
+      return false;
+    return true;
+  }
+
+  void setMaxAtomicWidth() override {
+    if (CPU == "r5900")
+      MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 0;
   }
 
   const std::string &getCPU() const { return CPU; }

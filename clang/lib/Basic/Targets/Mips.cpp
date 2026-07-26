@@ -93,7 +93,10 @@ void MipsTargetInfo::getTargetDefines(const LangOptions &Opts,
   if (Opts.GNUMode)
     Builder.defineMacro("mips");
 
-  if (ABI == "o32") {
+  if (CPU == "r5900") {
+    Builder.defineMacro("__mips", "3");
+    Builder.defineMacro("_MIPS_ISA", "_MIPS_ISA_MIPS3");
+  } else if (ABI == "o32") {
     Builder.defineMacro("__mips", "32");
     Builder.defineMacro("_MIPS_ISA", "_MIPS_ISA_MIPS32");
   } else {
@@ -206,10 +209,15 @@ void MipsTargetInfo::getTargetDefines(const LangOptions &Opts,
   else
     Builder.defineMacro("_MIPS_ARCH_" + StringRef(CPU).upper());
 
+  if (CPU == "r5900") {
+    Builder.defineMacro("_MIPS_TUNE", "\"r5900\"");
+    Builder.defineMacro("_MIPS_TUNE_R5900");
+  }
+
   if (StringRef(CPU).starts_with("octeon"))
     Builder.defineMacro("__OCTEON__");
 
-  if (CPU != "mips1") {
+  if (CPU != "mips1" && CPU != "r5900") {
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
@@ -220,7 +228,14 @@ void MipsTargetInfo::getTargetDefines(const LangOptions &Opts,
   // the instructions exist but using them violates the ABI since they
   // require 64-bit GPRs and O32 only supports 32-bit GPRs.
   if (ABI == "n32" || ABI == "n64")
-    Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8");
+    if (CPU != "r5900")
+      Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8");
+
+  if (getTriple().isPS2()) {
+    Builder.defineMacro("__ps2__");
+    Builder.defineMacro("__ps2sdk__");
+    Builder.defineMacro("_EE");
+  }
 }
 
 bool MipsTargetInfo::hasFeature(StringRef Feature) const {

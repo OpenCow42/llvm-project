@@ -49,6 +49,9 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
     DefMips64CPU = "mips3";
   }
 
+  if (Triple.isPS2())
+    DefMips64CPU = "r5900";
+
   if (Arg *A = Args.getLastArg(options::OPT_march_EQ, options::OPT_mcpu_EQ))
     CPUName = A->getValue();
 
@@ -79,6 +82,9 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
   }
 
   if (ABIName.empty() && Triple.isABIN32())
+    ABIName = "n32";
+
+  if (ABIName.empty() && Triple.isPS2())
     ABIName = "n32";
 
   if (ABIName.empty() &&
@@ -337,6 +343,9 @@ void mips::getMIPSTargetFeatures(const Driver &D, const llvm::Triple &Triple,
 
   AddTargetFeature(Args, Features, options::OPT_msingle_float,
                    options::OPT_mdouble_float, "single-float");
+  if (Triple.isPS2() &&
+      !Args.hasArg(options::OPT_msingle_float, options::OPT_mdouble_float))
+    Features.push_back("+single-float");
   AddTargetFeature(Args, Features, options::OPT_mips16, options::OPT_mno_mips16,
                    "mips16");
   AddTargetFeature(Args, Features, options::OPT_mmicromips,

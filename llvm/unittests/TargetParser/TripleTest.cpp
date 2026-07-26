@@ -144,6 +144,12 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::SCEI, T.getVendor());
   EXPECT_EQ(Triple::PS4, T.getOS());
 
+  T = Triple("mips64el-scei-ps2");
+  EXPECT_EQ(Triple::mips64el, T.getArch());
+  EXPECT_EQ(Triple::SCEI, T.getVendor());
+  EXPECT_EQ(Triple::PS2, T.getOS());
+  EXPECT_TRUE(T.isPS2());
+
   T = Triple("x86_64-sie-ps4");
   EXPECT_EQ(Triple::x86_64, T.getArch());
   EXPECT_EQ(Triple::SCEI, T.getVendor());
