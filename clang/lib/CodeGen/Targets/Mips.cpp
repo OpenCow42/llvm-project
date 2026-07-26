@@ -39,12 +39,33 @@ public:
   ABIArgInfo extendType(QualType Ty) const;
 };
 
+class MipsSwiftABIInfo : public SwiftABIInfo {
+public:
+  explicit MipsSwiftABIInfo(CodeGenTypes &CGT)
+      : SwiftABIInfo(CGT, /*SwiftErrorInRegister=*/false) {}
+
+  bool shouldPassIndirectly(ArrayRef<llvm::Type *> ComponentTys,
+                            bool AsReturnValue) const override {
+    // N32 has two scalar return registers. Keep argument expansion
+    // conservative at Swift's usual four-register limit even though the C ABI
+    // exposes eight argument slots.
+    return occupiesMoreThan(ComponentTys, AsReturnValue ? 2 : 4);
+  }
+
+  bool isLegalVectorType(CharUnits, llvm::Type *, unsigned) const override {
+    // The baseline PS2 ABI does not pass values in VU or MMI registers.
+    return false;
+  }
+};
+
 class MIPSTargetCodeGenInfo : public TargetCodeGenInfo {
   unsigned SizeOfUnwindException;
 public:
   MIPSTargetCodeGenInfo(CodeGenTypes &CGT, bool IsO32)
       : TargetCodeGenInfo(std::make_unique<MipsABIInfo>(CGT, IsO32)),
-        SizeOfUnwindException(IsO32 ? 24 : 32) {}
+        SizeOfUnwindException(IsO32 ? 24 : 32) {
+    SwiftInfo = std::make_unique<MipsSwiftABIInfo>(CGT);
+  }
 
   int getDwarfEHStackPointer(CodeGen::CodeGenModule &CGM) const override {
     return 29;

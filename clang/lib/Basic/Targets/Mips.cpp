@@ -330,6 +330,13 @@ bool MipsTargetInfo::validateTarget(DiagnosticsEngine &Diags) const {
   return true;
 }
 
+TargetInfo::CallingConvCheckResult
+MipsTargetInfo::checkCallingConvention(CallingConv CC) const {
+  if (CC == CC_Swift && getTriple().isPS2())
+    return CCCR_OK;
+  return TargetInfo::checkCallingConvention(CC);
+}
+
 WindowsMipsTargetInfo::WindowsMipsTargetInfo(const llvm::Triple &Triple,
                                              const TargetOptions &Opts)
     : WindowsTargetInfo<MipsTargetInfo>(Triple, Opts), Triple(Triple) {}

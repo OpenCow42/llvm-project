@@ -467,6 +467,8 @@ public:
 
   unsigned getUnwindWordWidth() const override;
 
+  CallingConvCheckResult checkCallingConvention(CallingConv CC) const override;
+
   bool validateTarget(DiagnosticsEngine &Diags) const override;
   bool hasBitIntType() const override { return true; }
 
