@@ -342,6 +342,12 @@ MipsSETargetLowering::MipsSETargetLowering(const MipsTargetMachine &TM,
   }
 
   if (Subtarget.isR5900()) {
+    // The R5900 has 64-bit GPRs but only 32-bit floating-point conversion
+    // instructions. Expand 64-bit integer conversions instead of selecting
+    // the unavailable cvt.s.l/cvt.l.s family.
+    setOperationAction(ISD::SINT_TO_FP, MVT::i64, Expand);
+    setOperationAction(ISD::FP_TO_SINT, MVT::i64, Expand);
+
     // R5900 FPU only supports 4 compare conditions: C.F, C.EQ, C.OLT, C.OLE
     // (and their inversions via bc1t/bc1f). Expand all conditions that would
     // require C.UN, C.UEQ, C.ULT, or C.ULE instructions (not available on
