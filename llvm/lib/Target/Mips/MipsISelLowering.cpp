@@ -662,7 +662,8 @@ static bool invertFPCondCodeUser(Mips::CondCode CC) {
 
 // Creates and returns an FPCmp node from a setcc node.
 // Returns Op if setcc is not a floating point comparison.
-static SDValue createFPCmp(SelectionDAG &DAG, const SDValue &Op) {
+static SDValue createFPCmp(SelectionDAG &DAG, const SDValue &Op,
+                           const MipsSubtarget &Subtarget) {
   // must be a SETCC node
   if (Op.getOpcode() != ISD::SETCC)
     return Op;
@@ -678,6 +679,35 @@ static SDValue createFPCmp(SelectionDAG &DAG, const SDValue &Op) {
   // Assume the 3rd operand is a CondCodeSDNode. Add code to check the type of
   // node if necessary.
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
+
+  if (Subtarget.isR5900()) {
+    // BRCOND can invert a comparison after condition-code legalization. Keep
+    // this final lowering boundary from selecting the C.ULT/C.ULE encodings
+    // that the R5900 does not implement. The unordered forms are expressed by
+    // inverting a supported ordered comparison in invertFPCondCodeUser().
+    switch (CC) {
+    default:
+      break;
+    case ISD::SETGT:
+    case ISD::SETOGT:
+      std::swap(LHS, RHS);
+      CC = ISD::SETOLT;
+      break;
+    case ISD::SETGE:
+    case ISD::SETOGE:
+      std::swap(LHS, RHS);
+      CC = ISD::SETOLE;
+      break;
+    case ISD::SETULT:
+      std::swap(LHS, RHS);
+      CC = ISD::SETUGT;
+      break;
+    case ISD::SETULE:
+      std::swap(LHS, RHS);
+      CC = ISD::SETUGE;
+      break;
+    }
+  }
 
   return DAG.getNode(MipsISD::FPCmp, DL, MVT::Glue, LHS, RHS,
                      DAG.getConstant(condCodeToFCC(CC), DL, MVT::i32));
@@ -2187,7 +2217,7 @@ SDValue MipsTargetLowering::lowerBRCOND(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
 
   assert(!Subtarget.hasMips32r6() && !Subtarget.hasMips64r6());
-  SDValue CondRes = createFPCmp(DAG, Op.getOperand(1));
+  SDValue CondRes = createFPCmp(DAG, Op.getOperand(1), Subtarget);
 
   // Return if flag is not set by a floating point comparison.
   if (CondRes.getOpcode() != MipsISD::FPCmp)
@@ -2206,7 +2236,7 @@ SDValue MipsTargetLowering::
 lowerSELECT(SDValue Op, SelectionDAG &DAG) const
 {
   assert(!Subtarget.hasMips32r6() && !Subtarget.hasMips64r6());
-  SDValue Cond = createFPCmp(DAG, Op.getOperand(0));
+  SDValue Cond = createFPCmp(DAG, Op.getOperand(0), Subtarget);
 
   // Return if flag is not set by a floating point comparison.
   if (Cond.getOpcode() != MipsISD::FPCmp)
@@ -2218,7 +2248,7 @@ lowerSELECT(SDValue Op, SelectionDAG &DAG) const
 
 SDValue MipsTargetLowering::lowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   assert(!Subtarget.hasMips32r6() && !Subtarget.hasMips64r6());
-  SDValue Cond = createFPCmp(DAG, Op);
+  SDValue Cond = createFPCmp(DAG, Op, Subtarget);
 
   assert(Cond.getOpcode() == MipsISD::FPCmp &&
          "Floating point operand expected.");
