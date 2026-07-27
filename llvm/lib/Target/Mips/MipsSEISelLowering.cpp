@@ -1317,7 +1317,12 @@ MipsSETargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
 bool MipsSETargetLowering::isEligibleForTailCallOptimization(
     const CCState &CCInfo, unsigned NextStackOffset,
     const MipsFunctionInfo &FI) const {
-  if (!UseMipsTailCalls)
+  // The static PS2 executable model has no interposition boundary for local
+  // functions, and its N32 ABI already provides the incoming argument area
+  // checked below. Enable compatible sibling calls by default so optimized
+  // wrappers do not retain a frame solely to call a local implementation.
+  // Other MIPS targets keep the existing opt-in policy.
+  if (!UseMipsTailCalls && !Subtarget.isTargetPS2())
     return false;
 
   // Exception has to be cleared with eret.
