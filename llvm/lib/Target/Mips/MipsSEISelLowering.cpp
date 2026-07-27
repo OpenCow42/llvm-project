@@ -388,13 +388,18 @@ MipsSETargetLowering::MipsSETargetLowering(const MipsTargetMachine &TM,
     setCondCodeAction(ISD::SETUEQ, MVT::f32, Expand);
     setCondCodeAction(ISD::SETNE, MVT::f32, Expand);
 
-    // R5900 FPU does not support IEEE 754 special values (NaN, infinity). Use
-    // custom lowering to decide per-instruction: hardware when nnan+ninf flags
-    // guarantee no NaN or infinity, software libcall otherwise.
-    setOperationAction(ISD::FADD, MVT::f32, Custom);
-    setOperationAction(ISD::FSUB, MVT::f32, Custom);
-    setOperationAction(ISD::FMUL, MVT::f32, Custom);
-    setOperationAction(ISD::FDIV, MVT::f32, Custom);
+    // PS2 Float arithmetic follows the native R5900 single-precision
+    // semantics, including its behavior for exceptional values. The PS2
+    // libgcc arithmetic helpers are thin wrappers around these same
+    // instructions, so routing ordinary operations through libcalls only adds
+    // call overhead and prevents scheduling across the arithmetic.
+    setOperationAction(ISD::FADD, MVT::f32, Legal);
+    setOperationAction(ISD::FSUB, MVT::f32, Legal);
+    setOperationAction(ISD::FMUL, MVT::f32, Legal);
+    setOperationAction(ISD::FDIV, MVT::f32, Legal);
+
+    // Keep square root on the existing per-instruction path. A future native
+    // default requires its own exceptional-value qualification.
     setOperationAction(ISD::FSQRT, MVT::f32, Custom);
   }
 
@@ -571,14 +576,6 @@ SDValue MipsSETargetLowering::LowerOperation(SDValue Op,
   case ISD::VECTOR_SHUFFLE:     return lowerVECTOR_SHUFFLE(Op, DAG);
   case ISD::SELECT:             return lowerSELECT(Op, DAG);
   case ISD::BITCAST:            return lowerBITCAST(Op, DAG);
-  case ISD::FADD:
-    return lowerR5900FPOp(Op, DAG, RTLIB::ADD_F32);
-  case ISD::FSUB:
-    return lowerR5900FPOp(Op, DAG, RTLIB::SUB_F32);
-  case ISD::FMUL:
-    return lowerR5900FPOp(Op, DAG, RTLIB::MUL_F32);
-  case ISD::FDIV:
-    return lowerR5900FPOp(Op, DAG, RTLIB::DIV_F32);
   case ISD::FSQRT:
     return lowerR5900FPOp(Op, DAG, RTLIB::SQRT_F32);
   }
@@ -592,12 +589,12 @@ SDValue MipsSETargetLowering::lowerR5900FPOp(SDValue Op, SelectionDAG &DAG,
   SDNodeFlags Flags = Op->getFlags();
 
   if (Flags.hasNoNaNs() && Flags.hasNoInfs()) {
-    // Use the hardware FPU instruction if the operation is guaranteed to have
-    // no NaN or infinity inputs/outputs (nnan+ninf flags).
+    // Square root can use the hardware FPU instruction if the operation is
+    // guaranteed to have no NaN or infinity inputs/outputs.
     return Op;
   }
 
-  // Fall back to a software libcall for IEEE correctness.
+  // Retain the established square-root libcall for the unqualified case.
   SDLoc DL(Op);
   MVT VT = Op.getSimpleValueType();
   SmallVector<SDValue, 2> Ops(Op->op_begin(), Op->op_end());
