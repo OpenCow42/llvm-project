@@ -20,6 +20,22 @@
 // RUN:   | FileCheck --check-prefix=BAD-DOUBLE-FLOAT %s
 // RUN: not %clang --target=mips64el-scei-ps2 -G8 -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=BAD-SMALL-DATA %s
+// RUN: %clang --target=mips64el-scei-ps2 -### -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FRAME-DEBUG %s
+// RUN: %clang --target=mips64el-scei-ps2 -O1 -### -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FRAME-OPT %s
+// RUN: %clang --target=mips64el-scei-ps2 -O2 -### -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FRAME-OPT %s
+// RUN: %clang --target=mips64el-scei-ps2 -O3 -### -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FRAME-OPT %s
+// RUN: %clang --target=mips64el-scei-ps2 -Os -### -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FRAME-OPT %s
+// RUN: %clang --target=mips64el-scei-ps2 -Oz -### -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FRAME-OPT %s
+// RUN: %clang --target=mips64el-scei-ps2 -O2 -fno-omit-frame-pointer \
+// RUN:   -### -c %s 2>&1 | FileCheck --check-prefix=FRAME-FORCED %s
+// RUN: %clang --target=mips64el-scei-ps2 -O0 -fomit-frame-pointer \
+// RUN:   -### -c %s 2>&1 | FileCheck --check-prefix=FRAME-OPT %s
 
 // COMPILE: "-cc1"
 // COMPILE-DAG: "-triple" "mips64el-scei-ps2"
@@ -29,6 +45,7 @@
 // COMPILE-DAG: "-target-abi" "n32"
 // COMPILE-DAG: "-mfloat-abi" "hard"
 // COMPILE-DAG: "-mips-ssection-threshold=0"
+// COMPILE-DAG: "-mframe-pointer=all"
 // COMPILE-DAG: "-nostdsysteminc"
 // COMPILE-DAG: "{{.*}}Inputs/ps2_tree/ee/mips64r5900el-ps2-elf/include"
 // COMPILE-DAG: "{{.*}}Inputs/ps2_tree/ps2sdk/ee/include"
@@ -51,5 +68,9 @@
 // BAD-SOFT-FLOAT: error: unsupported option '-msoft-float' for target 'mips64el-scei-ps2'
 // BAD-DOUBLE-FLOAT: error: unsupported option '-mdouble-float' for target 'mips64el-scei-ps2'
 // BAD-SMALL-DATA: error: unsupported option '-G 8' for target 'mips64el-scei-ps2'
+
+// FRAME-DEBUG: "-mframe-pointer=all"
+// FRAME-OPT: "-mframe-pointer=none"
+// FRAME-FORCED: "-mframe-pointer=all"
 
 int main(void) { return 0; }
