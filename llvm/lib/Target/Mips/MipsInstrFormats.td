@@ -720,6 +720,21 @@ class MFC1_FM<bits<5> funct> : StdArch {
   let Inst{10-0}  = 0;
 }
 
+// R5900 COP2 register move format (CFC2/CTC2/QMFC2/QMTC2).
+// Format: COP2(6) | funct(5) | rt(5) | rd(5) | 0(11)
+class MFC2_FM<bits<5> funct> : StdArch {
+  bits<5> rt;
+  bits<5> rd;
+
+  bits<32> Inst;
+
+  let Inst{31-26} = 0x12;
+  let Inst{25-21} = funct;
+  let Inst{20-16} = rt;
+  let Inst{15-11} = rd;
+  let Inst{10-0}  = 0;
+}
+
 class LW_FM<bits<6> op> : StdArch {
   bits<5> rt;
   bits<21> addr;

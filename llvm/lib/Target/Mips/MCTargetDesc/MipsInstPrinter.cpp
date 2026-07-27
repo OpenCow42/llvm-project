@@ -361,3 +361,28 @@ void MipsInstPrinter::printRegisterList(const MCInst *MI, int opNum,
     printRegName(O, MI->getOperand(i).getReg());
   }
 }
+
+void MipsInstPrinter::printVU0DestMask(const MCInst *MI, int opNum,
+                                       const MCSubtargetInfo &,
+                                       raw_ostream &O) {
+  unsigned Mask = MI->getOperand(opNum).getImm();
+  O << '.';
+  if (Mask & 0b1000)
+    O << 'x';
+  if (Mask & 0b0100)
+    O << 'y';
+  if (Mask & 0b0010)
+    O << 'z';
+  if (Mask & 0b0001)
+    O << 'w';
+}
+
+void MipsInstPrinter::printVFWithField(const MCInst *MI, int opNum,
+                                       const MCSubtargetInfo &,
+                                       raw_ostream &O) {
+  static constexpr char Fields[] = {'x', 'y', 'z', 'w'};
+  unsigned Combined = MI->getOperand(opNum).getImm();
+  unsigned Field = (Combined >> 5) & 0x3;
+  unsigned RegIndex = Combined & 0x1f;
+  O << "$vf" << RegIndex << Fields[Field];
+}

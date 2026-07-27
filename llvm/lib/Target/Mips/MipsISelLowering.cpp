@@ -289,6 +289,22 @@ const char *MipsTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case MipsISD::PCKEV:             return "MipsISD::PCKEV";
   case MipsISD::PCKOD:             return "MipsISD::PCKOD";
   case MipsISD::INSVE:             return "MipsISD::INSVE";
+  case MipsISD::VU0_BLEND:         return "MipsISD::VU0_BLEND";
+  case MipsISD::VU0_FADD_MASKED:   return "MipsISD::VU0_FADD_MASKED";
+  case MipsISD::VU0_FSUB_MASKED:   return "MipsISD::VU0_FSUB_MASKED";
+  case MipsISD::VU0_FMUL_MASKED:   return "MipsISD::VU0_FMUL_MASKED";
+  case MipsISD::VU0_MULx:          return "MipsISD::VU0_MULx";
+  case MipsISD::VU0_MULy:          return "MipsISD::VU0_MULy";
+  case MipsISD::VU0_MULz:          return "MipsISD::VU0_MULz";
+  case MipsISD::VU0_MULw:          return "MipsISD::VU0_MULw";
+  case MipsISD::VU0_MADDx:         return "MipsISD::VU0_MADDx";
+  case MipsISD::VU0_MADDy:         return "MipsISD::VU0_MADDy";
+  case MipsISD::VU0_MADDz:         return "MipsISD::VU0_MADDz";
+  case MipsISD::VU0_MADDw:         return "MipsISD::VU0_MADDw";
+  case MipsISD::VU0_MULAx:         return "MipsISD::VU0_MULAx";
+  case MipsISD::VU0_MULAy:         return "MipsISD::VU0_MULAy";
+  case MipsISD::VU0_MULAz:         return "MipsISD::VU0_MULAz";
+  case MipsISD::VU0_MULAw:         return "MipsISD::VU0_MULAw";
   }
   return nullptr;
 }

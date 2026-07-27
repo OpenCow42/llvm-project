@@ -68,6 +68,7 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMipsTarget() {
   initializeMipsPreLegalizerCombinerPass(*PR);
   initializeMipsPostLegalizerCombinerPass(*PR);
   initializeMipsMulMulBugFixPass(*PR);
+  initializeMipsR5900VU0AccChainPass(*PR);
   initializeMipsDAGToDAGISelLegacyPass(*PR);
 }
 
@@ -289,6 +290,8 @@ bool MipsPassConfig::addInstSelector() {
 
 void MipsPassConfig::addPreRegAlloc() {
   addPass(createMipsOptimizePICCallPass());
+  if (getMipsSubtarget().isR5900() && getMipsSubtarget().hasVU0())
+    addPass(createMipsR5900VU0AccChainPass());
 }
 
 TargetTransformInfo

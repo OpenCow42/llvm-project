@@ -246,6 +246,24 @@ class TargetRegisterClass;
       DOUBLE_SELECT_I,
       DOUBLE_SELECT_I64,
 
+      // R5900 VU0 macro-mode vector combines.
+      VU0_BLEND,
+      VU0_FADD_MASKED,
+      VU0_FSUB_MASKED,
+      VU0_FMUL_MASKED,
+      VU0_MULx,
+      VU0_MULy,
+      VU0_MULz,
+      VU0_MULw,
+      VU0_MADDx,
+      VU0_MADDy,
+      VU0_MADDz,
+      VU0_MADDw,
+      VU0_MULAx,
+      VU0_MULAy,
+      VU0_MULAz,
+      VU0_MULAw,
+
       // Load/Store Left/Right nodes.
       FIRST_MEMORY_OPCODE,
       LWL = FIRST_MEMORY_OPCODE,

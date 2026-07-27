@@ -199,6 +199,22 @@ MipsSETargetLowering::MipsSETargetLowering(const MipsTargetMachine &TM,
     setTargetDAGCombine({ISD::AND, ISD::OR, ISD::SRA, ISD::VSELECT, ISD::XOR});
   }
 
+  if (Subtarget.hasVU0()) {
+    addRegisterClass(MVT::v4f32, &Mips::VFRegsRegClass);
+
+    for (unsigned Opc = 0; Opc < ISD::BUILTIN_OP_END; ++Opc)
+      setOperationAction(Opc, MVT::v4f32, Expand);
+
+    setOperationAction(ISD::LOAD, MVT::v4f32, Legal);
+    setOperationAction(ISD::STORE, MVT::v4f32, Legal);
+    setOperationAction(ISD::FADD, MVT::v4f32, Legal);
+    setOperationAction(ISD::FSUB, MVT::v4f32, Legal);
+    setOperationAction(ISD::FMUL, MVT::v4f32, Legal);
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f32, Custom);
+    setOperationAction(ISD::BUILD_VECTOR, MVT::v4f32, Custom);
+    setTargetDAGCombine(ISD::FMUL);
+  }
+
   if (!Subtarget.useSoftFloat()) {
     addRegisterClass(MVT::f32, &Mips::FGR32RegClass);
 
@@ -1140,6 +1156,41 @@ static SDValue performXORCombine(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+static SDValue performVU0FMULCombine(SDNode *N, SelectionDAG &DAG,
+                                     const MipsSubtarget &Subtarget) {
+  if (!Subtarget.hasVU0() || N->getValueType(0) != MVT::v4f32)
+    return SDValue();
+
+  for (unsigned I = 0; I != 2; ++I) {
+    SDValue Vector = N->getOperand(I);
+    SDValue Shuffle = N->getOperand(1 - I);
+    if (Shuffle.getOpcode() != ISD::VECTOR_SHUFFLE)
+      continue;
+
+    auto *ShuffleNode = cast<ShuffleVectorSDNode>(Shuffle.getNode());
+    int BroadcastIndex = -1;
+    for (int MaskElement : ShuffleNode->getMask()) {
+      if (MaskElement < 0)
+        continue;
+      if (MaskElement > 3 ||
+          (BroadcastIndex >= 0 && MaskElement != BroadcastIndex)) {
+        BroadcastIndex = -1;
+        break;
+      }
+      BroadcastIndex = MaskElement;
+    }
+    if (BroadcastIndex < 0)
+      continue;
+
+    static constexpr unsigned Opcodes[] = {
+        MipsISD::VU0_MULx, MipsISD::VU0_MULy, MipsISD::VU0_MULz,
+        MipsISD::VU0_MULw};
+    return DAG.getNode(Opcodes[BroadcastIndex], SDLoc(N), MVT::v4f32, Vector,
+                       ShuffleNode->getOperand(0), N->getFlags());
+  }
+  return SDValue();
+}
+
 SDValue
 MipsSETargetLowering::PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
   SelectionDAG &DAG = DCI.DAG;
@@ -1151,6 +1202,9 @@ MipsSETargetLowering::PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
     break;
   case ISD::OR:
     Val = performORCombine(N, DAG, DCI, Subtarget);
+    break;
+  case ISD::FMUL:
+    Val = performVU0FMULCombine(N, DAG, Subtarget);
     break;
   case ISD::MUL:
     return performMULCombine(N, DAG, DCI, this, Subtarget);
@@ -3122,6 +3176,9 @@ SDValue MipsSETargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
   EVT ResTy = Op->getValueType(0);
 
   if (!ResTy.is128BitVector())
+    return SDValue();
+
+  if (Subtarget.hasVU0() && ResTy == MVT::v4f32)
     return SDValue();
 
   int ResTyNumElts = ResTy.getVectorNumElements();

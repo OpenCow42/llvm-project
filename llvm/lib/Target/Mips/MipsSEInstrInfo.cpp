@@ -162,6 +162,12 @@ void MipsSEInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     else if (Mips::FGR64RegClass.contains(DestReg))
       Opc = Mips::DMTC1;
   }
+  else if (Mips::VFRegsRegClass.contains(DestReg, SrcReg)) {
+    BuildMI(MBB, I, DL, get(Mips::VMOVE), DestReg)
+        .addImm(0xf)
+        .addReg(SrcReg, getKillRegState(KillSrc));
+    return;
+  }
   else if (Mips::MSA128BRegClass.contains(DestReg)) { // Copy to MSA reg
     if (Mips::MSA128BRegClass.contains(SrcReg))
       Opc = Mips::MOVE_V;
@@ -239,6 +245,8 @@ void MipsSEInstrInfo::storeRegToStack(MachineBasicBlock &MBB,
     Opc = Mips::SDC1;
   else if (Mips::FGR64RegClass.hasSubClassEq(RC))
     Opc = Mips::SDC164;
+  else if (Mips::VFRegsRegClass.hasSubClassEq(RC))
+    Opc = Mips::SQC2;
   else if (TRI->isTypeLegalForClass(*RC, MVT::v16i8))
     Opc = Mips::ST_B;
   else if (TRI->isTypeLegalForClass(*RC, MVT::v8i16) ||
@@ -317,6 +325,8 @@ void MipsSEInstrInfo::loadRegFromStack(
     Opc = Mips::LDC1;
   else if (Mips::FGR64RegClass.hasSubClassEq(RC))
     Opc = Mips::LDC164;
+  else if (Mips::VFRegsRegClass.hasSubClassEq(RC))
+    Opc = Mips::LQC2;
   else if (TRI->isTypeLegalForClass(*RC, MVT::v16i8))
     Opc = Mips::LD_B;
   else if (TRI->isTypeLegalForClass(*RC, MVT::v8i16) ||

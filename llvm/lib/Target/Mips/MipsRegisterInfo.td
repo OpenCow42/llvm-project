@@ -202,6 +202,16 @@ let Namespace = "Mips" in {
   foreach I = 0-7 in
   def FCC#I : MipsReg<I, "fcc"#I>;
 
+  // R5900 VU0 vector registers. VF0 is the architectural constant
+  // {0.0, 0.0, 0.0, 1.0}.
+  let isConstant = true in
+  def VF0 : MipsReg<0, "vf0">, DwarfRegNum<[112]>;
+  foreach I = 1-31 in
+  def VF#I : MipsReg<I, "vf"#I>, DwarfRegNum<[!add(I, 112)]>;
+
+  def VU0ACC : MipsReg<0, "ACC">, DwarfRegNum<[144]>;
+  def VU0Q : MipsReg<0, "Q">, DwarfRegNum<[145]>;
+
   // COP0 registers.
   foreach I = 0-31 in
   def COP0#I : MipsReg<I, ""#I>;
@@ -427,6 +437,10 @@ def CCR : RegisterClass<"Mips", [i32], 32, (sequence "FCR%u", 0, 31)>,
 def FCC : RegisterClass<"Mips", [i32], 32, (sequence "FCC%u", 0, 7)>,
           Unallocatable;
 
+def VU0ACCRC
+    : RegisterClass<"Mips", [v4f32], 128, (add VU0ACC)>, Unallocatable;
+def VU0QRC : RegisterClass<"Mips", [f32], 32, (add VU0Q)>, Unallocatable;
+
 // MIPS32r6/MIPS64r6 store FPU condition codes in normal FGR registers.
 // This class allows us to represent this in codegen patterns.
 def FGRCC : RegisterClass<"Mips", [i32], 32, (sequence "F%u", 0, 31)>;
@@ -482,6 +496,13 @@ def COP0 : RegisterClass<"Mips", [i32], 32, (sequence "COP0%u", 0, 31)>,
 // Coprocessor 2 registers.
 def COP2 : RegisterClass<"Mips", [i32], 32, (sequence "COP2%u", 0, 31)>,
            Unallocatable;
+
+// VF registers are kernel-local under the standard N32 ABI. VF0 participates
+// in instruction encoding but is never allocated because it is constant.
+def VFRegs : RegisterClass<"Mips", [v4f32], 128, (add
+  VF0, VF1, VF2, VF3, VF4, VF5, VF6, VF7, VF8, VF9, VF10, VF11,
+  VF12, VF13, VF14, VF15, VF16, VF17, VF18, VF19, VF20, VF21,
+  VF22, VF23, VF24, VF25, VF26, VF27, VF28, VF29, VF30, VF31)>;
 
 // Coprocessor 3 registers.
 def COP3 : RegisterClass<"Mips", [i32], 32, (sequence "COP3%u", 0, 31)>,
@@ -669,6 +690,11 @@ def COP2AsmOperand : MipsAsmRegOperand {
   let Name = "COP2AsmReg";
 }
 
+def VFAsmOperand : MipsAsmRegOperand {
+  let Name = "VFAsmReg";
+  let PredicateMethod = "isVFAsmReg";
+}
+
 def COP3AsmOperand : MipsAsmRegOperand {
   let Name = "COP3AsmReg";
 }
@@ -729,6 +755,10 @@ def COP0Opnd : RegisterOperand<COP0> {
 
 def COP2Opnd : RegisterOperand<COP2> {
   let ParserMatchClass = COP2AsmOperand;
+}
+
+def VFOpnd : RegisterOperand<VFRegs> {
+  let ParserMatchClass = VFAsmOperand;
 }
 
 def COP3Opnd : RegisterOperand<COP3> {

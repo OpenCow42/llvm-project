@@ -49,6 +49,7 @@ public:
   bool hasMips2() const { return STI.hasFeature(Mips::FeatureMips2); }
   bool hasMips3() const { return STI.hasFeature(Mips::FeatureMips3); }
   bool hasMips32() const { return STI.hasFeature(Mips::FeatureMips32); }
+  bool hasR5900() const { return STI.hasFeature(Mips::FeatureR5900); }
 
   bool hasMips32r6() const {
     return STI.hasFeature(Mips::FeatureMips32r6);
@@ -177,6 +178,10 @@ static DecodeStatus DecodeCOP0RegisterClass(MCInst &Inst, unsigned RegNo,
 static DecodeStatus DecodeCOP2RegisterClass(MCInst &Inst, unsigned RegNo,
                                             uint64_t Address,
                                             const MCDisassembler *Decoder);
+
+static DecodeStatus DecodeVFRegsRegisterClass(MCInst &Inst, unsigned RegNo,
+                                              uint64_t Address,
+                                              const MCDisassembler *Decoder);
 
 static DecodeStatus DecodeBranchTarget(MCInst &Inst, unsigned Offset,
                                        uint64_t Address,
@@ -316,6 +321,9 @@ static DecodeStatus DecodeFMem2(MCInst &Inst, unsigned Insn, uint64_t Address,
                                 const MCDisassembler *Decoder);
 
 static DecodeStatus DecodeFMem3(MCInst &Inst, unsigned Insn, uint64_t Address,
+                                const MCDisassembler *Decoder);
+
+static DecodeStatus DecodeVFMem(MCInst &Inst, unsigned Insn, uint64_t Address,
                                 const MCDisassembler *Decoder);
 
 static DecodeStatus DecodeFMemCop2R6(MCInst &Inst, unsigned Insn,
@@ -1248,6 +1256,14 @@ DecodeStatus MipsDisassembler::getInstruction(MCInst &Instr, uint64_t &Size,
   // The only instruction size for standard encoded MIPS.
   Size = 4;
 
+  if (hasR5900()) {
+    LLVM_DEBUG(dbgs() << "Trying R5900 table (32-bit opcodes):\n");
+    Result = decodeInstruction(DecoderTableR590032, Instr, Insn, Address, this,
+                               STI);
+    if (Result != MCDisassembler::Fail)
+      return Result;
+  }
+
   if (hasCOP3()) {
     LLVM_DEBUG(dbgs() << "Trying COP3_ table (32-bit opcodes):\n");
     Result =
@@ -1914,6 +1930,20 @@ static DecodeStatus DecodeFMem3(MCInst &Inst, unsigned Insn, uint64_t Address,
   return MCDisassembler::Success;
 }
 
+static DecodeStatus DecodeVFMem(MCInst &Inst, unsigned Insn, uint64_t Address,
+                                const MCDisassembler *Decoder) {
+  int Offset = SignExtend32<16>(Insn & 0xffff);
+  unsigned Reg = fieldFromInstruction(Insn, 16, 5);
+  unsigned Base = fieldFromInstruction(Insn, 21, 5);
+
+  Reg = getReg(Decoder, Mips::VFRegsRegClassID, Reg);
+  Base = getReg(Decoder, Mips::GPR64RegClassID, Base);
+  Inst.addOperand(MCOperand::createReg(Reg));
+  Inst.addOperand(MCOperand::createReg(Base));
+  Inst.addOperand(MCOperand::createImm(Offset));
+  return MCDisassembler::Success;
+}
+
 static DecodeStatus DecodeFMemCop2R6(MCInst &Inst, unsigned Insn,
                                      uint64_t Address,
                                      const MCDisassembler *Decoder) {
@@ -2096,6 +2126,17 @@ static DecodeStatus DecodeCOP2RegisterClass(MCInst &Inst, unsigned RegNo,
     return MCDisassembler::Fail;
 
   unsigned Reg = getReg(Decoder, Mips::COP2RegClassID, RegNo);
+  Inst.addOperand(MCOperand::createReg(Reg));
+  return MCDisassembler::Success;
+}
+
+static DecodeStatus DecodeVFRegsRegisterClass(MCInst &Inst, unsigned RegNo,
+                                              uint64_t Address,
+                                              const MCDisassembler *Decoder) {
+  if (RegNo > 31)
+    return MCDisassembler::Fail;
+
+  unsigned Reg = getReg(Decoder, Mips::VFRegsRegClassID, RegNo);
   Inst.addOperand(MCOperand::createReg(Reg));
   return MCDisassembler::Success;
 }

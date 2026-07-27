@@ -237,6 +237,11 @@ getReservedRegs(const MachineFunction &MF) const {
     Reserved.set(Mips::GP_64);
   }
 
+  // VF0 is the VU0 constant vector {0.0, 0.0, 0.0, 1.0}; it is valid in
+  // assembly operands but must never be selected for a virtual register.
+  if (Subtarget.hasVU0())
+    Reserved.set(Mips::VF0);
+
   return Reserved;
 }
 

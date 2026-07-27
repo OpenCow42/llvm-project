@@ -198,6 +198,10 @@ def FeatureMMI : SubtargetFeature<"mmi", "HasMMI", "true",
                                   "Enable R5900 multimedia instructions",
                                   [FeatureR5900]>;
 
+def FeatureVU0 : SubtargetFeature<"vu0", "HasVU0", "true",
+                                  "Enable R5900 VU0 macro-mode operations",
+                                  [FeatureR5900]>;
+
 def FeatureUseTCCInDIV : SubtargetFeature<
                                "use-tcc-in-div",
                                "UseTCCInDIV", "false",
@@ -239,6 +243,7 @@ include "MipsCombine.td"
 include "MipsScheduleI6400.td"
 include "MipsScheduleP5600.td"
 include "MipsScheduleGeneric.td"
+include "MipsScheduleR5900VU0.td"
 
 def MipsInstrInfo : InstrInfo {
 }
@@ -284,7 +289,7 @@ def : Proc<"mips64r6", [FeatureMips64r6]>;
 def : Proc<"octeon", [FeatureMips64r2, FeatureCnMips]>;
 def : Proc<"octeon+", [FeatureMips64r2, FeatureCnMips, FeatureCnMipsP]>;
 def : ProcessorModel<"p5600", MipsP5600Model, [ImplP5600]>;
-def : Proc<"r5900", [FeatureR5900]>;
+def : ProcessorModel<"r5900", MipsR5900VU0Model, [FeatureR5900]>;
 def : ProcessorModel<"i6400", MipsI6400Model, [ImplI6400]>;
 def : ProcessorModel<"i6500", MipsI6400Model, [ImplI6500]>;
 

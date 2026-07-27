@@ -123,6 +123,9 @@ class MipsSubtarget : public MipsGenSubtargetInfo {
   // HasMMI - Enable R5900 multimedia instructions.
   bool HasMMI;
 
+  // HasVU0 - Enable R5900 VU0 macro-mode instructions.
+  bool HasVU0;
+
   // isLinux - Target system is Linux. Is false we consider ELFOS for now.
   bool IsLinux;
 
@@ -294,6 +297,7 @@ public:
   bool isR5900() const { return IsR5900; }
   bool fixR5900() const { return FixR5900; }
   bool hasMMI() const { return HasMMI; }
+  bool hasVU0() const { return HasVU0; }
 
   bool isLittle() const { return IsLittle; }
   bool isABICalls() const { return !NoABICalls; }

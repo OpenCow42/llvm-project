@@ -256,6 +256,8 @@ def NotR5900 : Predicate<"!Subtarget->isR5900()">,
                AssemblerPredicate<(all_of (not FeatureR5900))>;
 def HasMMI : Predicate<"Subtarget->hasMMI()">,
              AssemblerPredicate<(all_of FeatureMMI)>;
+def HasVU0 : Predicate<"Subtarget->hasVU0()">,
+             AssemblerPredicate<(all_of FeatureVU0)>;
 def HasCRC   : Predicate<"Subtarget->hasCRC()">,
                AssemblerPredicate<(all_of FeatureCRC)>;
 def HasVirt  : Predicate<"Subtarget->hasVirt()">,
@@ -3474,3 +3476,7 @@ include "MicroMipsDSPInstrInfo.td"
 // R5900 MMI
 include "MipsR5900InstrFormats.td"
 include "MipsR5900InstrInfo.td"
+
+// R5900 VU0 macro mode
+include "MipsVU0InstrFormats.td"
+include "MipsVU0InstrInfo.td"
