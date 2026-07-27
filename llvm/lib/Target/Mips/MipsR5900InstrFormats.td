@@ -6,9 +6,29 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file describes the instruction formats used by the R5900 MMI.
+// This file describes R5900-specific EE core and MMI instruction formats.
 //
 //===----------------------------------------------------------------------===//
+
+// R5900 three-operand multiply format:
+// | 31-26  | 25-21 | 20-16 | 15-11 | 10-6 | 5-0      |
+// | SPECIAL| rs    | rt    | rd    | 0    | MULT[U]  |
+//
+// Standard MIPS requires rd=0 and retrieves the low result through MFLO. The
+// R5900 also writes that result directly to rd.
+class R5900_MULT3_FM<bits<6> funct> : StdArch {
+  bits<5> rd;
+  bits<5> rs;
+  bits<5> rt;
+  bits<32> Inst;
+
+  let Inst{31-26} = 0;
+  let Inst{25-21} = rs;
+  let Inst{20-16} = rt;
+  let Inst{15-11} = rd;
+  let Inst{10-6} = 0;
+  let Inst{5-0} = funct;
+}
 
 // R5900 MMI0 format:
 // | 31-26  | 25-21 | 20-16 | 15-11 | 10-6  | 5-0    |

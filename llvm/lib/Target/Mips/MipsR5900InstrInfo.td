@@ -6,11 +6,32 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file begins the R5900 MMI port with scalar word saturation operations.
-// The public N32 ABI remains authoritative; these definitions do not introduce
-// a vector-register calling convention.
+// This file contains R5900-specific EE core and MMI instructions. The public
+// N32 ABI remains authoritative; these definitions do not introduce a
+// vector-register calling convention.
 //
 //===----------------------------------------------------------------------===//
+
+let Predicates = [IsR5900] in {
+
+// R5900 three-operand multiply writes the low 32-bit result directly to rd
+// while preserving the architectural HI/LO side effects.
+let Defs = [HI0, LO0], isCommutable = 1 in
+def R5900_MULT : InstSE<(outs GPR32Opnd:$rd),
+                        (ins GPR32Opnd:$rs, GPR32Opnd:$rt),
+                        "mult\t$rd, $rs, $rt",
+                        [(set GPR32Opnd:$rd,
+                              (mul GPR32Opnd:$rs, GPR32Opnd:$rt))],
+                        II_MULT, FrmR>,
+                 R5900_MULT3_FM<0x18>;
+
+let Defs = [HI0, LO0], isCommutable = 1 in
+def R5900_MULTU : InstSE<(outs GPR32Opnd:$rd),
+                         (ins GPR32Opnd:$rs, GPR32Opnd:$rt),
+                         "multu\t$rd, $rs, $rt", [], II_MULTU, FrmR>,
+                  R5900_MULT3_FM<0x19>;
+
+} // Predicates = [IsR5900]
 
 let Predicates = [HasMMI] in {
 
