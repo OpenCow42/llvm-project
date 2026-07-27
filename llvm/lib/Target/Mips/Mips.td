@@ -194,6 +194,10 @@ def FeatureR5900 : SubtargetFeature<"r5900", "IsR5900", "true",
                                     [FeatureMips3, FeatureSingleFloat,
                                      FeatureFixR5900]>;
 
+def FeatureMMI : SubtargetFeature<"mmi", "HasMMI", "true",
+                                  "Enable R5900 multimedia instructions",
+                                  [FeatureR5900]>;
+
 def FeatureUseTCCInDIV : SubtargetFeature<
                                "use-tcc-in-div",
                                "UseTCCInDIV", "false",

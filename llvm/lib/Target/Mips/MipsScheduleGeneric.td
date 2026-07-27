@@ -50,6 +50,13 @@ def : InstRW<[GenericWriteALU], (instrs ADD, ADDi, ADDiu, ADDu, AND, ANDi,
                                  SLLV, SLT, SLTi, SLTiu, SLTu, SRA, SRAV, SRL,
                                  SRLV, SSNOP, SUB, SUBu, WSBH, XOR, XORi)>;
 
+// R5900 MMI word saturation operations have one-cycle ALU latency. Keep the
+// generic single-issue throughput until a complete R5900 machine model is
+// qualified, so enabling this first family cannot perturb baseline scheduling.
+def : InstRW<[GenericWriteALU],
+             (instrs PADDSW, PADDUW, PSUBSW, PSUBUW,
+                     PADDSW_S32, PADDUW_S32, PSUBSW_S32, PSUBUW_S32)>;
+
 def : InstRW<[GenericWriteALU], (instrs COPY)>;
 
 // MIPSR6

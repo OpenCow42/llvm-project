@@ -120,6 +120,9 @@ class MipsSubtarget : public MipsGenSubtargetInfo {
   // FixR5900 - Enable R5900 short loop erratum fix.
   bool FixR5900;
 
+  // HasMMI - Enable R5900 multimedia instructions.
+  bool HasMMI;
+
   // isLinux - Target system is Linux. Is false we consider ELFOS for now.
   bool IsLinux;
 
@@ -290,6 +293,7 @@ public:
   bool hasCnMipsP() const { return HasCnMipsP; }
   bool isR5900() const { return IsR5900; }
   bool fixR5900() const { return FixR5900; }
+  bool hasMMI() const { return HasMMI; }
 
   bool isLittle() const { return IsLittle; }
   bool isABICalls() const { return !NoABICalls; }

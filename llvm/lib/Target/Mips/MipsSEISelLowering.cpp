@@ -342,6 +342,13 @@ MipsSETargetLowering::MipsSETargetLowering(const MipsTargetMachine &TM,
   }
 
   if (Subtarget.isR5900()) {
+    if (Subtarget.hasMMI()) {
+      setOperationAction(ISD::SADDSAT, MVT::i32, Legal);
+      setOperationAction(ISD::UADDSAT, MVT::i32, Legal);
+      setOperationAction(ISD::SSUBSAT, MVT::i32, Legal);
+      setOperationAction(ISD::USUBSAT, MVT::i32, Legal);
+    }
+
     // The R5900 has 64-bit GPRs but only 32-bit floating-point conversion
     // instructions. Expand 64-bit integer conversions instead of selecting
     // the unavailable cvt.s.l/cvt.l.s family.
