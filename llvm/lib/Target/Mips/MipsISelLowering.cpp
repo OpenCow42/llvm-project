@@ -3375,6 +3375,80 @@ void MipsTargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
   }
 }
 
+static bool getFrameIndexAndOffset(SDValue Address, SDValue &FrameIndex,
+                                   int64_t &Offset) {
+  Offset = 0;
+  if (Address.getOpcode() == ISD::ADD) {
+    auto *Constant = dyn_cast<ConstantSDNode>(Address.getOperand(1));
+    if (!Constant)
+      return false;
+    Offset = Constant->getSExtValue();
+    Address = Address.getOperand(0);
+  }
+
+  if (!isa<FrameIndexSDNode>(Address))
+    return false;
+
+  FrameIndex = Address;
+  return true;
+}
+
+static unsigned collectContiguousStackArgumentLoads(
+    unsigned ArgLocIndex, unsigned OutValIndex, ArrayRef<CCValAssign> ArgLocs,
+    ArrayRef<SDValue> OutVals, ArrayRef<ISD::OutputArg> Outs,
+    SmallVectorImpl<LoadSDNode *> &Loads) {
+  constexpr unsigned SlotSize = 8;
+  constexpr unsigned MinCopySize = 64;
+
+  SDValue FirstFrameIndex;
+  int64_t FirstSourceOffset = 0;
+  int64_t FirstStackOffset = 0;
+  SDValue CommonLoadChain;
+
+  for (unsigned Run = 0;
+       ArgLocIndex + Run < ArgLocs.size() && OutValIndex + Run < OutVals.size();
+       ++Run) {
+    const CCValAssign &VA = ArgLocs[ArgLocIndex + Run];
+    if (Outs[OutValIndex + Run].Flags.isByVal() || !VA.isMemLoc() ||
+        VA.getLocInfo() != CCValAssign::Full || VA.getValVT() != MVT::i64 ||
+        VA.getLocVT() != MVT::i64)
+      break;
+
+    auto *Load = dyn_cast<LoadSDNode>(OutVals[OutValIndex + Run].getNode());
+    if (!Load || !Load->isUnindexed() || Load->isVolatile() ||
+        Load->isAtomic() || Load->getExtensionType() != ISD::NON_EXTLOAD ||
+        Load->getMemoryVT() != MVT::i64 || Load->getAlign() < Align(SlotSize) ||
+        !SDValue(Load, 0).use_empty() || !SDValue(Load, 1).hasOneUse())
+      break;
+
+    SDValue FrameIndex;
+    int64_t SourceOffset;
+    if (!getFrameIndexAndOffset(Load->getBasePtr(), FrameIndex, SourceOffset))
+      break;
+
+    if (Run == 0) {
+      FirstFrameIndex = FrameIndex;
+      FirstSourceOffset = SourceOffset;
+      FirstStackOffset = VA.getLocMemOffset();
+      CommonLoadChain = Load->getChain();
+    } else if (FrameIndex != FirstFrameIndex ||
+               SourceOffset != FirstSourceOffset + Run * SlotSize ||
+               VA.getLocMemOffset() != FirstStackOffset + Run * SlotSize ||
+               Load->getChain() != CommonLoadChain) {
+      break;
+    }
+
+    Loads.push_back(Load);
+  }
+
+  if (Loads.size() * SlotSize < MinCopySize) {
+    Loads.clear();
+    return 0;
+  }
+
+  return Loads.size();
+}
+
 /// LowerCall - functions arguments are copied from virtual regs to
 /// (physical regs)/(stack frame), CALLSEQ_START and CALLSEQ_END are emitted.
 SDValue
@@ -3494,6 +3568,75 @@ MipsTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     MVT ValVT = VA.getValVT(), LocVT = VA.getLocVT();
     ISD::ArgFlagsTy Flags = Outs[OutIdx].Flags;
     bool UseUpperBits = false;
+
+    // Clang represents direct N32 aggregates as independent eight-byte IR
+    // arguments. At -Oz, share long contiguous frame-to-outgoing-stack copies
+    // through memcpy instead of materializing one load/store pair per slot.
+    if (Subtarget.isR5900() && ABI.IsN32() && MF.getFunction().hasMinSize() &&
+        !IsTailCall && VA.isMemLoc()) {
+      SmallVector<LoadSDNode *, 8> Loads;
+      unsigned NumLoads = collectContiguousStackArgumentLoads(
+          i, OutIdx, ArgLocs, OutVals, Outs, Loads);
+      if (NumLoads) {
+        LoadSDNode *FirstLoad = Loads.front();
+        unsigned CopySize = NumLoads * 8;
+        SDValue Src = FirstLoad->getBasePtr();
+        SDValue Dst = DAG.getNode(
+            ISD::ADD, DL, getPointerTy(DAG.getDataLayout()), StackPtr,
+            DAG.getIntPtrConstant(VA.getLocMemOffset(), DL));
+        MachinePointerInfo SrcInfo = FirstLoad->getPointerInfo();
+
+        for (LoadSDNode *Load : Loads)
+          DAG.ReplaceAllUsesOfValueWith(SDValue(Load, 1), Load->getChain());
+
+        SDValue CopyChain = DAG.getMemcpy(
+            Chain, DL, Dst, Src,
+            DAG.getConstant(CopySize, DL, getPointerTy(DAG.getDataLayout())),
+            Align(8), /*isVolatile=*/false, /*AlwaysInline=*/false,
+            /*CI=*/nullptr, std::nullopt, MachinePointerInfo(), SrcInfo);
+
+        SDValue SourceFrameIndex;
+        int64_t FirstSourceOffset;
+        bool HasSourceFrameIndex = getFrameIndexAndOffset(
+            FirstLoad->getBasePtr(), SourceFrameIndex, FirstSourceOffset);
+        assert(HasSourceFrameIndex && "collector accepted a non-frame load");
+
+        // Register pieces from the same aggregate were collected before its
+        // stack pieces. Reload them after memcpy so they are not kept live
+        // across the helper call and spilled solely to preserve argument
+        // values.
+        for (auto &RegArg : RegsToPass) {
+          auto *Load = dyn_cast<LoadSDNode>(RegArg.second.getNode());
+          if (!Load || !Load->isUnindexed() || Load->isVolatile() ||
+              Load->isAtomic() ||
+              Load->getExtensionType() != ISD::NON_EXTLOAD ||
+              Load->getMemoryVT() != MVT::i64 ||
+              !SDValue(Load, 0).use_empty() || !SDValue(Load, 1).hasOneUse() ||
+              Load->getChain() != FirstLoad->getChain())
+            continue;
+
+          SDValue FrameIndex;
+          int64_t SourceOffset;
+          if (!getFrameIndexAndOffset(Load->getBasePtr(), FrameIndex,
+                                      SourceOffset) ||
+              FrameIndex != SourceFrameIndex || SourceOffset < 0 ||
+              SourceOffset >= FirstSourceOffset ||
+              (FirstSourceOffset - SourceOffset) % 8 != 0)
+            continue;
+
+          SDValue Reload =
+              DAG.getLoad(MVT::i64, DL, CopyChain, Load->getBasePtr(),
+                          Load->getMemOperand());
+          DAG.ReplaceAllUsesOfValueWith(SDValue(Load, 1), Load->getChain());
+          RegArg.second = Reload;
+        }
+
+        MemOpChains.push_back(CopyChain);
+        i += NumLoads - 1;
+        OutIdx += NumLoads - 1;
+        continue;
+      }
+    }
 
     // ByVal Arg.
     if (Flags.isByVal()) {
