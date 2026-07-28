@@ -24,6 +24,28 @@ define i32 @static_wrapper(i32 %value) nounwind {
   ret i32 %result
 }
 
+define internal fastcc i64 @pointer_implementation(
+    ptr %context, i32 signext %count) noinline minsize nounwind {
+entry:
+  %value = load i64, ptr %context, align 8
+  %extended = sext i32 %count to i64
+  %sum = add i64 %value, %extended
+  ret i64 %sum
+}
+
+define i64 @pointer_wrapper(ptr %context) minsize nounwind {
+; PS2-LABEL: pointer_wrapper:
+; PS2-STATIC-NOT: sll
+; PS2-STATIC: j pointer_implementation
+; PS2-PIC:   jr $25
+; PS2-NEXT:  addiu $5, $zero, 32
+; PS2-NOT:   jal
+; PS2-NOT:   addiu $sp, $sp,
+  %result =
+      tail call fastcc i64 @pointer_implementation(ptr %context, i32 32)
+  ret i64 %result
+}
+
 define i32 @tail_calls_disabled(i32 %value) nounwind
     "disable-tail-calls"="true" {
 ; PS2-LABEL: tail_calls_disabled:
