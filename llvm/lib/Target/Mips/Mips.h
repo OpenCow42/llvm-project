@@ -51,6 +51,7 @@ FunctionPass *createMipsExpandPseudoPass();
 FunctionPass *createMipsPreLegalizeCombiner();
 FunctionPass *createMipsPostLegalizeCombiner(bool IsOptNone);
 FunctionPass *createMipsMulMulBugPass();
+FunctionPass *createMipsR5900MinSizeDivRemPass();
 FunctionPass *createMipsR5900VU0AccChainPass();
 
 InstructionSelector *
@@ -65,6 +66,7 @@ void initializeMipsDelaySlotFillerPass(PassRegistry &);
 void initializeMipsMulMulBugFixPass(PassRegistry &);
 void initializeMipsPostLegalizerCombinerPass(PassRegistry &);
 void initializeMipsPreLegalizerCombinerPass(PassRegistry &);
+void initializeMipsR5900MinSizeDivRemPass(PassRegistry &);
 void initializeMipsR5900VU0AccChainPass(PassRegistry &);
 } // namespace llvm
 
