@@ -103,7 +103,8 @@ MipsRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   }
 
   if (Subtarget.isSingleFloat())
-    return CSR_SingleFloatOnly_SaveList;
+    return Subtarget.isABI_N32() ? CSR_N32_SingleFloat_SaveList
+                                 : CSR_SingleFloatOnly_SaveList;
 
   if (Subtarget.isABI_N64())
     return CSR_N64_SaveList;
@@ -125,7 +126,8 @@ MipsRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                                        CallingConv::ID) const {
   const MipsSubtarget &Subtarget = MF.getSubtarget<MipsSubtarget>();
   if (Subtarget.isSingleFloat())
-    return CSR_SingleFloatOnly_RegMask;
+    return Subtarget.isABI_N32() ? CSR_N32_SingleFloat_RegMask
+                                 : CSR_SingleFloatOnly_RegMask;
 
   if (Subtarget.isABI_N64())
     return CSR_N64_RegMask;

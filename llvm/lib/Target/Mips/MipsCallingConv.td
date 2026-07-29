@@ -362,6 +362,10 @@ def CC_Mips : CallingConv<[
 def CSR_SingleFloatOnly : CalleeSavedRegs<(add (sequence "F%u", 31, 20), RA, FP,
                                                (sequence "S%u", 7, 0))>;
 
+def CSR_N32_SingleFloat :
+  CalleeSavedRegs<(add (decimate (sequence "F%u", 30, 20), 2), RA_64, FP_64,
+                       GP_64, (sequence "S%u_64", 7, 0))>;
+
 def CSR_O32_FPXX : CalleeSavedRegs<(add (sequence "D%u", 15, 10), RA, FP,
                                         (sequence "S%u", 7, 0))> {
   let OtherPreserved = (add (decimate (sequence "F%u", 30, 20), 2));
