@@ -1,4 +1,6 @@
 ; RUN: llc -mtriple=mips64el -mcpu=r5900 < %s | FileCheck %s -check-prefix=FIX
+; RUN: llc -mtriple=mips64el -mcpu=r5900-scalar-experimental < %s \
+; RUN:   | FileCheck %s -check-prefix=FIX
 ; RUN: llc -mtriple=mips64el -mcpu=r5900 -mattr=-fix-r5900 < %s | FileCheck %s -check-prefix=NOFIX
 ;
 ; Test R5900 short loop erratum fix.
