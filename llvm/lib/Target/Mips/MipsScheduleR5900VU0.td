@@ -37,6 +37,16 @@ def R5900VU0WriteALU : SchedWriteRes<[R5900VU0UnitALU]> {
   let Latency = 1;
 }
 
+// Historical R5900 documentation and the reference backend describe a
+// four-cycle result latency with one multiply accepted every two cycles. This
+// remains conservative until the complete scalar model is hardware-qualified.
+def R5900WriteMul : SchedWriteRes<[R5900VU0UnitALU]> {
+  let Latency = 4;
+  let ReleaseAtCycles = [2];
+}
+
+def : InstRW<[R5900WriteMul], (instrs R5900_MULT, R5900_MULTU)>;
+
 // Preserve the qualified timing of the first MMI family.
 def : InstRW<[R5900VU0WriteALU],
              (instrs PADDSW, PADDUW, PSUBSW, PSUBUW,

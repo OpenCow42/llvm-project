@@ -873,7 +873,12 @@ static bool shouldTransformMulToShiftsAddsSubs(APInt C, EVT VT,
   //   That allows to remove a workaround for types not supported natively.
   // - Take in account `-Os, -Oz` flags because this optimization
   //   increases code size.
-  unsigned MaxSteps = Subtarget.isABI_O32() ? 8 : 12;
+  // R5900 returns a 32-bit product directly from its three-operand MULT, so
+  // only retain decompositions that need at most two simple instructions.
+  // More complex constants are cheaper to materialize and multiply.
+  unsigned MaxSteps = Subtarget.isR5900() && VT == MVT::i32
+                          ? 2
+                          : (Subtarget.isABI_O32() ? 8 : 12);
 
   SmallVector<APInt, 16> WorkStack(1, C);
   unsigned Steps = 0;
