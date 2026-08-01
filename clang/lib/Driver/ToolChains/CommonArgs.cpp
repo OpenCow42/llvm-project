@@ -74,6 +74,12 @@ static bool useFramePointerForTargetByDefault(const llvm::opt::ArgList &Args,
   if (Triple.isAndroid())
     return true;
 
+  // The PS2 target is static-only and does not provide an unwinder or a
+  // frame-chain-based profiling runtime. Preserve frame pointers for
+  // unoptimized debugging, but free the register in production builds.
+  if (Triple.isPS2())
+    return !clang::driver::tools::areOptimizationsEnabled(Args);
+
   switch (Triple.getArch()) {
   case llvm::Triple::xcore:
   case llvm::Triple::wasm32:
