@@ -508,11 +508,8 @@ define float @fold_select_fmuladd(i1 %c, float %a, float %b, float %y) {
 define float @fold_select_fma_opposite_sign(i1 %c, float %a, float %b, float %y) {
 ; CHECK-LABEL: define float @fold_select_fma_opposite_sign(
 ; CHECK-SAME: i1 [[C:%.*]], float [[A:%.*]], float [[B:%.*]], float [[Y:%.*]]) {
-; CHECK-NEXT:    [[A_NEG:%.*]] = fneg float [[A]]
 ; CHECK-NEXT:    [[B_NEG:%.*]] = fneg float [[B]]
-; CHECK-NEXT:    [[S0:%.*]] = select i1 [[C]], float [[A]], float [[A_NEG]]
-; CHECK-NEXT:    [[S1:%.*]] = select i1 [[C]], float [[B_NEG]], float [[B]]
-; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fma.f32(float [[S0]], float [[S1]], float [[Y]])
+; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fma.f32(float [[A]], float [[B_NEG]], float [[Y]])
 ; CHECK-NEXT:    ret float [[RET]]
 ;
   %a.neg = fneg float %a
@@ -527,10 +524,7 @@ define float @fold_select_fmuladd_opposite_sign_commuted(i1 %c, float %a, float 
 ; CHECK-LABEL: define float @fold_select_fmuladd_opposite_sign_commuted(
 ; CHECK-SAME: i1 [[C:%.*]], float [[A:%.*]], float [[B:%.*]], float [[Y:%.*]]) {
 ; CHECK-NEXT:    [[A_NEG:%.*]] = fneg float [[A]]
-; CHECK-NEXT:    [[B_NEG:%.*]] = fneg float [[B]]
-; CHECK-NEXT:    [[S0:%.*]] = select i1 [[C]], float [[A_NEG]], float [[A]]
-; CHECK-NEXT:    [[S1:%.*]] = select i1 [[C]], float [[B]], float [[B_NEG]]
-; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fmuladd.f32(float [[S0]], float [[S1]], float [[Y]])
+; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fmuladd.f32(float [[A_NEG]], float [[B]], float [[Y]])
 ; CHECK-NEXT:    ret float [[RET]]
 ;
   %a.neg = fneg float %a
@@ -544,11 +538,8 @@ define float @fold_select_fmuladd_opposite_sign_commuted(i1 %c, float %a, float 
 define <2 x float> @fold_select_fma_opposite_sign_vec(<2 x i1> %c, <2 x float> %a, <2 x float> %b, <2 x float> %y) {
 ; CHECK-LABEL: define <2 x float> @fold_select_fma_opposite_sign_vec(
 ; CHECK-SAME: <2 x i1> [[C:%.*]], <2 x float> [[A:%.*]], <2 x float> [[B:%.*]], <2 x float> [[Y:%.*]]) {
-; CHECK-NEXT:    [[A_NEG:%.*]] = fneg <2 x float> [[A]]
 ; CHECK-NEXT:    [[B_NEG:%.*]] = fneg <2 x float> [[B]]
-; CHECK-NEXT:    [[S0:%.*]] = select <2 x i1> [[C]], <2 x float> [[A]], <2 x float> [[A_NEG]]
-; CHECK-NEXT:    [[S1:%.*]] = select <2 x i1> [[C]], <2 x float> [[B_NEG]], <2 x float> [[B]]
-; CHECK-NEXT:    [[RET:%.*]] = call <2 x float> @llvm.fma.v2f32(<2 x float> [[S0]], <2 x float> [[S1]], <2 x float> [[Y]])
+; CHECK-NEXT:    [[RET:%.*]] = call <2 x float> @llvm.fma.v2f32(<2 x float> [[A]], <2 x float> [[B_NEG]], <2 x float> [[Y]])
 ; CHECK-NEXT:    ret <2 x float> [[RET]]
 ;
   %a.neg = fneg <2 x float> %a
