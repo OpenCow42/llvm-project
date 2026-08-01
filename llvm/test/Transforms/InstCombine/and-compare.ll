@@ -206,8 +206,8 @@ define i1 @test_eq_0_and_15_add_1_multiuse(i8 %a, ptr %sink) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ADD:%.*]] = add i8 [[A:%.*]], 1
 ; CHECK-NEXT:    store i8 [[ADD]], ptr [[SINK:%.*]], align 1
-; CHECK-NEXT:    [[AND:%.*]] = and i8 [[ADD]], 15
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i8 [[AND]], 0
+; CHECK-NEXT:    [[TMP0:%.*]] = and i8 [[A]], 15
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i8 [[TMP0]], 15
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
 entry:
