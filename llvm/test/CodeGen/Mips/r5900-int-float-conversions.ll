@@ -17,7 +17,8 @@ define float @signed_i64_to_float(i64 %value) {
 define float @unsigned_i64_to_float(i64 %value) {
 ; CHECK-LABEL: unsigned_i64_to_float:
 ; CHECK: jal __floatdisf
-; CHECK: jal __addsf3
+; CHECK: add.s
+; CHECK-NOT: __addsf3
 ; CHECK-NOT: cvt.s.l
 ; CHECK-NOT: cvt.l.s
   %result = uitofp i64 %value to float
@@ -35,7 +36,8 @@ define i64 @float_to_signed_i64(float %value) {
 
 define i64 @float_to_unsigned_i64(float %value) {
 ; CHECK-LABEL: float_to_unsigned_i64:
-; CHECK: jal __subsf3
+; CHECK: sub.s
+; CHECK-NOT: __subsf3
 ; CHECK-NOT: cvt.l.s
 ; CHECK-NOT: cvt.s.l
   %result = fptoui float %value to i64
