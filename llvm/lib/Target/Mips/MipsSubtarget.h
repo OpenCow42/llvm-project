@@ -316,6 +316,7 @@ public:
     return (HasSym32 && isABI_N64()) || isABI_N32() || isABI_O32();
   }
   bool isSingleFloat() const { return IsSingleFloat; }
+  bool isTargetPS2() const { return TargetTriple.isPS2(); }
   bool isTargetCOFF() const { return TargetTriple.isOSBinFormatCOFF(); }
   bool isTargetELF() const { return TargetTriple.isOSBinFormatELF(); }
   bool hasVFPU() const { return HasVFPU; }
