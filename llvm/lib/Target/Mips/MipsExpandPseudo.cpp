@@ -62,6 +62,8 @@ namespace {
     bool expandAtomicBinOpSubword(MachineBasicBlock &BB,
                                   MachineBasicBlock::iterator I,
                                   MachineBasicBlock::iterator &NMBBI);
+    bool expandR5900DivResult(MachineBasicBlock &MBB,
+                              MachineBasicBlock::iterator MBBI);
 
     bool expandMI(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                   MachineBasicBlock::iterator &NMBB);
@@ -1013,6 +1015,56 @@ bool MipsExpandPseudo::expandAtomicBinOp(MachineBasicBlock &BB,
   return true;
 }
 
+bool MipsExpandPseudo::expandR5900DivResult(MachineBasicBlock &MBB,
+                                            MachineBasicBlock::iterator MBBI) {
+  unsigned DivideOpcode;
+  unsigned ExtractOpcode;
+  switch (MBBI->getOpcode()) {
+  case Mips::R5900_PseudoSDIV_LO:
+    DivideOpcode = Mips::SDIV;
+    ExtractOpcode = Mips::MFLO;
+    break;
+  case Mips::R5900_PseudoSDIV_HI:
+    DivideOpcode = Mips::SDIV;
+    ExtractOpcode = Mips::MFHI;
+    break;
+  case Mips::R5900_PseudoUDIV_LO:
+    DivideOpcode = Mips::UDIV;
+    ExtractOpcode = Mips::MFLO;
+    break;
+  case Mips::R5900_PseudoUDIV_HI:
+    DivideOpcode = Mips::UDIV;
+    ExtractOpcode = Mips::MFHI;
+    break;
+  default:
+    llvm_unreachable("unexpected R5900 divide-result pseudo");
+  }
+
+  DebugLoc DL = MBBI->getDebugLoc();
+  MachineInstrBuilder Divide = BuildMI(MBB, MBBI, DL, TII->get(DivideOpcode))
+                                   .add(MBBI->getOperand(1))
+                                   .add(MBBI->getOperand(2));
+  Divide.setMIFlags(MBBI->getFlags());
+
+  // The custom inserter places the division-by-zero TEQ immediately after
+  // the divide pseudo. Preserve the original DIV, TEQ, MFLO/MFHI ordering so
+  // the fused form does not make its destination visible on the trap path.
+  MachineBasicBlock::iterator ExtractAt = MBBI;
+  MachineBasicBlock::iterator Next = std::next(MBBI);
+  if (Next != MBB.end() && Next->getOpcode() == Mips::TEQ &&
+      Next->getOperand(0).isReg() &&
+      Next->getOperand(0).getReg() == MBBI->getOperand(2).getReg())
+    ExtractAt = std::next(Next);
+
+  MachineInstrBuilder Extract =
+      BuildMI(MBB, ExtractAt, DL, TII->get(ExtractOpcode));
+  Extract.add(MBBI->getOperand(0));
+  Extract.setMIFlags(MBBI->getFlags());
+
+  MBBI->eraseFromParent();
+  return true;
+}
+
 bool MipsExpandPseudo::expandMI(MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MBBI,
                                 MachineBasicBlock::iterator &NMBB) {
@@ -1020,6 +1072,11 @@ bool MipsExpandPseudo::expandMI(MachineBasicBlock &MBB,
   bool Modified = false;
 
   switch (MBBI->getOpcode()) {
+  case Mips::R5900_PseudoSDIV_LO:
+  case Mips::R5900_PseudoSDIV_HI:
+  case Mips::R5900_PseudoUDIV_LO:
+  case Mips::R5900_PseudoUDIV_HI:
+    return expandR5900DivResult(MBB, MBBI);
   case Mips::ATOMIC_CMP_SWAP_I32_POSTRA:
   case Mips::ATOMIC_CMP_SWAP_I64_POSTRA:
     return expandAtomicCmpSwap(MBB, MBBI, NMBB);

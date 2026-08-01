@@ -31,6 +31,22 @@ def R5900_MULTU : InstSE<(outs GPR32Opnd:$rd),
                          "multu\t$rd, $rs, $rt", [], II_MULTU, FrmR>,
                   R5900_MULT3_FM<0x19>;
 
+// A divide followed by a single HI/LO extraction does not need an allocatable
+// ACC64 value. Keeping the pair fused until after register allocation avoids
+// spilling the R5900's sole architectural accumulator when independent
+// divides overlap. MipsExpandPseudo emits the real divide and move pair.
+class R5900DivResultPseudo<InstrItinClass Itin>
+    : PseudoSE<(outs GPR32Opnd:$rd),
+               (ins GPR32Opnd:$rs, GPR32Opnd:$rt), [], Itin> {
+  let Defs = [HI0, LO0];
+  let hasSideEffects = 0;
+}
+
+def R5900_PseudoSDIV_LO : R5900DivResultPseudo<II_DIV>;
+def R5900_PseudoSDIV_HI : R5900DivResultPseudo<II_DIV>;
+def R5900_PseudoUDIV_LO : R5900DivResultPseudo<II_DIVU>;
+def R5900_PseudoUDIV_HI : R5900DivResultPseudo<II_DIVU>;
+
 } // Predicates = [IsR5900]
 
 let Predicates = [HasMMI] in {
