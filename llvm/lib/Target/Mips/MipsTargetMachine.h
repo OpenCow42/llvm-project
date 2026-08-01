@@ -78,6 +78,8 @@ public:
 
   bool isLittleEndian() const { return isLittle; }
   const MipsABIInfo &getABI() const { return ABI; }
+
+  bool useIPRA() const override { return getTargetTriple().isPS2(); }
 };
 
 /// Mips32/64 big endian target machine.
