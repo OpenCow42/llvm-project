@@ -29,6 +29,62 @@ define i64 @multiply_i64(i64 %lhs, i64 %rhs) {
 ; CHECK-LABEL: multiply_i64:
 ; CHECK-NOT: dmult
 ; CHECK-NOT: dmultu
+; CHECK-NOT: __muldi3
   %result = mul i64 %lhs, %rhs
+  ret i64 %result
+}
+
+declare void @observe()
+
+define i64 @multiply_i64_minsize_leaf(i64 %lhs, i64 %rhs) minsize {
+; CHECK-LABEL: multiply_i64_minsize_leaf:
+; CHECK-NOT: __muldi3
+  %result = mul i64 %lhs, %rhs
+  ret i64 %result
+}
+
+define i64 @multiply_i64_minsize_nonleaf(i64 %lhs, i64 %rhs) minsize {
+; CHECK-LABEL: multiply_i64_minsize_nonleaf:
+; CHECK-NOT: __muldi3
+; CHECK: jal observe
+  call void @observe()
+  %result = mul i64 %lhs, %rhs
+  ret i64 %result
+}
+
+define i64 @multiply_fnv64_minsize_leaf(i64 %value) minsize {
+; CHECK-LABEL: multiply_fnv64_minsize_leaf:
+; CHECK-NOT: __muldi3
+; CHECK: dsll
+  %result = mul i64 %value, 1099511628211
+  ret i64 %result
+}
+
+define i64 @multiply_fnv64_minsize_nonleaf(i64 %value) minsize {
+; CHECK-LABEL: multiply_fnv64_minsize_nonleaf:
+; CHECK: jal __muldi3
+; CHECK: jal observe
+  call void @observe()
+  %result = mul i64 %value, 1099511628211
+  ret i64 %result
+}
+
+define i64 @multiply_by_33_minsize_nonleaf(i64 %value) minsize {
+; CHECK-LABEL: multiply_by_33_minsize_nonleaf:
+; CHECK-NOT: __muldi3
+; CHECK: dsll
+; CHECK: jal observe
+  call void @observe()
+  %result = mul i64 %value, 33
+  ret i64 %result
+}
+
+define i64 @multiply_fnv64_non_minsize_nonleaf(i64 %value) {
+; CHECK-LABEL: multiply_fnv64_non_minsize_nonleaf:
+; CHECK-NOT: __muldi3
+; CHECK: dsll
+; CHECK: jal observe
+  call void @observe()
+  %result = mul i64 %value, 1099511628211
   ret i64 %result
 }

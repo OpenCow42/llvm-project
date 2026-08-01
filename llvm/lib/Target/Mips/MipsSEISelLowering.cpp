@@ -32,6 +32,7 @@
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/CodeGenTypes/MachineValueType.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsMips.h"
 #include "llvm/Support/Casting.h"
@@ -59,6 +60,18 @@ static cl::opt<bool> NoDPLoadStore("mno-ldc1-sdc1", cl::init(false),
                                    cl::desc("Expand double precision loads and "
                                             "stores to their single precision "
                                             "counterparts"));
+
+static bool hasNonIntrinsicExternalCall(const Function &F) {
+  return any_of(F, [](const BasicBlock &BB) {
+    return any_of(BB, [](const Instruction &I) {
+      const auto *CB = dyn_cast<CallBase>(&I);
+      if (!CB)
+        return false;
+      const Function *Callee = CB->getCalledFunction();
+      return !Callee || (Callee->isDeclaration() && !Callee->isIntrinsic());
+    });
+  });
+}
 
 // Widen the v2 vectors to the register width, i.e. v2i16 -> v8i16,
 // v2i32 -> v4i32, etc, to ensure the correct rail size is used, i.e.
@@ -235,8 +248,10 @@ MipsSETargetLowering::MipsSETargetLowering(const MipsTargetMachine &TM,
   if (Subtarget.hasCnMips())
     setOperationAction(ISD::MUL,              MVT::i64, Legal);
   else if (Subtarget.isR5900()) {
-    // R5900 doesn't have DMULT/DMULTU/DDIV/DDIVU - expand to 32-bit ops
-    setOperationAction(ISD::MUL, MVT::i64, Expand);
+    // R5900 doesn't have DMULT/DMULTU/DDIV/DDIVU. Custom-lower i64 MUL so
+    // minsize functions with external calls can share __muldi3 for complex
+    // constants while other functions retain the existing 32-bit expansion.
+    setOperationAction(ISD::MUL, MVT::i64, Custom);
     setOperationAction(ISD::SMUL_LOHI, MVT::i64, Expand);
     setOperationAction(ISD::UMUL_LOHI, MVT::i64, Expand);
     setOperationAction(ISD::MULHS, MVT::i64, Expand);
@@ -564,7 +579,21 @@ SDValue MipsSETargetLowering::LowerOperation(SDValue Op,
   case ISD::UMUL_LOHI: return lowerMulDiv(Op, MipsISD::Multu, true, true, DAG);
   case ISD::MULHS:     return lowerMulDiv(Op, MipsISD::Mult, false, true, DAG);
   case ISD::MULHU:     return lowerMulDiv(Op, MipsISD::Multu, false, true, DAG);
-  case ISD::MUL:       return lowerMulDiv(Op, MipsISD::Mult, true, false, DAG);
+  case ISD::MUL:
+    if (Subtarget.isR5900() && Op.getSimpleValueType() == MVT::i64) {
+      const Function &F = DAG.getMachineFunction().getFunction();
+      if (!F.hasMinSize() || !hasNonIntrinsicExternalCall(F) ||
+          !isa<ConstantSDNode>(Op.getOperand(1)))
+        return SDValue();
+
+      SDLoc DL(Op);
+      SmallVector<SDValue, 2> Ops(Op->op_begin(), Op->op_end());
+      TargetLowering::MakeLibCallOptions CallOptions;
+      auto [Result, Chain] =
+          makeLibCall(DAG, RTLIB::MUL_I64, MVT::i64, Ops, CallOptions, DL);
+      return Result;
+    }
+    return lowerMulDiv(Op, MipsISD::Mult, true, false, DAG);
   case ISD::SDIVREM:   return lowerMulDiv(Op, MipsISD::DivRem, true, true, DAG);
   case ISD::UDIVREM:   return lowerMulDiv(Op, MipsISD::DivRemU, true, true,
                                           DAG);
@@ -876,9 +905,19 @@ static bool shouldTransformMulToShiftsAddsSubs(APInt C, EVT VT,
   // R5900 returns a 32-bit product directly from its three-operand MULT, so
   // only retain decompositions that need at most two simple instructions.
   // More complex constants are cheaper to materialize and multiply.
-  unsigned MaxSteps = Subtarget.isR5900() && VT == MVT::i32
-                          ? 2
-                          : (Subtarget.isABI_O32() ? 8 : 12);
+  unsigned MaxSteps;
+  if (Subtarget.isR5900() && VT == MVT::i32) {
+    MaxSteps = 2;
+  } else if (Subtarget.isR5900() && VT == MVT::i64) {
+    const Function &F = DAG.getMachineFunction().getFunction();
+    // A minsize function that already calls outside its translation unit can
+    // amortize another call better than a leaf or locally composed function.
+    // Preserve short shift/add forms, but share complex i64 multiplies through
+    // __muldi3 rather than emitting a long inline expansion.
+    MaxSteps = F.hasMinSize() && hasNonIntrinsicExternalCall(F) ? 6 : 12;
+  } else {
+    MaxSteps = Subtarget.isABI_O32() ? 8 : 12;
+  }
 
   SmallVector<APInt, 16> WorkStack(1, C);
   unsigned Steps = 0;
