@@ -201,6 +201,23 @@ entry:
   ret i1 %cmp
 }
 
+define i1 @test_eq_0_and_15_add_1_multiuse(i8 %a, ptr %sink) {
+; CHECK-LABEL: @test_eq_0_and_15_add_1_multiuse(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[ADD:%.*]] = add i8 [[A:%.*]], 1
+; CHECK-NEXT:    store i8 [[ADD]], ptr [[SINK:%.*]], align 1
+; CHECK-NEXT:    [[TMP0:%.*]] = and i8 [[A]], 15
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i8 [[TMP0]], 15
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+entry:
+  %add = add i8 %a, 1
+  store i8 %add, ptr %sink
+  %and = and i8 %add, 15
+  %cmp = icmp eq i8 %and, 0
+  ret i1 %cmp
+}
+
 define i1 @test_eq_0_and_15_add_3(i8 %a) {
 ; CHECK-LABEL: @test_eq_0_and_15_add_3(
 ; CHECK-NEXT:  entry:
