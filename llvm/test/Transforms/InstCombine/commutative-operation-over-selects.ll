@@ -21,6 +21,7 @@ declare i16 @llvm.smul.fix.sat.i16(i16 %a, i16 %b, i32 %scale)
 declare i16 @llvm.umul.fix.sat.i16(i16 %a, i16 %b, i32 %scale)
 declare float @llvm.fma.f32(float %a, float %b, float %c)
 declare float @llvm.fmuladd.f32(float %a, float %b, float %c)
+declare <2 x float> @llvm.fma.v2f32(<2 x float> %a, <2 x float> %b, <2 x float> %c)
 
 define i8 @fold_select_mul(i1 %c, i8 %a, i8 %b) {
 ; CHECK-LABEL: define i8 @fold_select_mul(
@@ -502,6 +503,98 @@ define float @fold_select_fmuladd(i1 %c, float %a, float %b, float %y) {
   %s1 = select i1 %c, float %b, float %a
   %ret = call float @llvm.fmuladd.f32(float %s1, float %s0, float %y)
   ret float %ret
+}
+
+define float @fold_select_fma_opposite_sign(i1 %c, float %a, float %b, float %y) {
+; CHECK-LABEL: define float @fold_select_fma_opposite_sign(
+; CHECK-SAME: i1 [[C:%.*]], float [[A:%.*]], float [[B:%.*]], float [[Y:%.*]]) {
+; CHECK-NEXT:    [[A_NEG:%.*]] = fneg float [[A]]
+; CHECK-NEXT:    [[B_NEG:%.*]] = fneg float [[B]]
+; CHECK-NEXT:    [[S0:%.*]] = select i1 [[C]], float [[A]], float [[A_NEG]]
+; CHECK-NEXT:    [[S1:%.*]] = select i1 [[C]], float [[B_NEG]], float [[B]]
+; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fma.f32(float [[S0]], float [[S1]], float [[Y]])
+; CHECK-NEXT:    ret float [[RET]]
+;
+  %a.neg = fneg float %a
+  %b.neg = fneg float %b
+  %s0 = select i1 %c, float %a, float %a.neg
+  %s1 = select i1 %c, float %b.neg, float %b
+  %ret = call float @llvm.fma.f32(float %s0, float %s1, float %y)
+  ret float %ret
+}
+
+define float @fold_select_fmuladd_opposite_sign_commuted(i1 %c, float %a, float %b, float %y) {
+; CHECK-LABEL: define float @fold_select_fmuladd_opposite_sign_commuted(
+; CHECK-SAME: i1 [[C:%.*]], float [[A:%.*]], float [[B:%.*]], float [[Y:%.*]]) {
+; CHECK-NEXT:    [[A_NEG:%.*]] = fneg float [[A]]
+; CHECK-NEXT:    [[B_NEG:%.*]] = fneg float [[B]]
+; CHECK-NEXT:    [[S0:%.*]] = select i1 [[C]], float [[A_NEG]], float [[A]]
+; CHECK-NEXT:    [[S1:%.*]] = select i1 [[C]], float [[B]], float [[B_NEG]]
+; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fmuladd.f32(float [[S0]], float [[S1]], float [[Y]])
+; CHECK-NEXT:    ret float [[RET]]
+;
+  %a.neg = fneg float %a
+  %b.neg = fneg float %b
+  %s0 = select i1 %c, float %a.neg, float %a
+  %s1 = select i1 %c, float %b, float %b.neg
+  %ret = call float @llvm.fmuladd.f32(float %s0, float %s1, float %y)
+  ret float %ret
+}
+
+define <2 x float> @fold_select_fma_opposite_sign_vec(<2 x i1> %c, <2 x float> %a, <2 x float> %b, <2 x float> %y) {
+; CHECK-LABEL: define <2 x float> @fold_select_fma_opposite_sign_vec(
+; CHECK-SAME: <2 x i1> [[C:%.*]], <2 x float> [[A:%.*]], <2 x float> [[B:%.*]], <2 x float> [[Y:%.*]]) {
+; CHECK-NEXT:    [[A_NEG:%.*]] = fneg <2 x float> [[A]]
+; CHECK-NEXT:    [[B_NEG:%.*]] = fneg <2 x float> [[B]]
+; CHECK-NEXT:    [[S0:%.*]] = select <2 x i1> [[C]], <2 x float> [[A]], <2 x float> [[A_NEG]]
+; CHECK-NEXT:    [[S1:%.*]] = select <2 x i1> [[C]], <2 x float> [[B_NEG]], <2 x float> [[B]]
+; CHECK-NEXT:    [[RET:%.*]] = call <2 x float> @llvm.fma.v2f32(<2 x float> [[S0]], <2 x float> [[S1]], <2 x float> [[Y]])
+; CHECK-NEXT:    ret <2 x float> [[RET]]
+;
+  %a.neg = fneg <2 x float> %a
+  %b.neg = fneg <2 x float> %b
+  %s0 = select <2 x i1> %c, <2 x float> %a, <2 x float> %a.neg
+  %s1 = select <2 x i1> %c, <2 x float> %b.neg, <2 x float> %b
+  %ret = call <2 x float> @llvm.fma.v2f32(<2 x float> %s0, <2 x float> %s1, <2 x float> %y)
+  ret <2 x float> %ret
+}
+
+define float @do_not_fold_select_fma_opposite_sign_different_conditions(i1 %c0, i1 %c1, float %a, float %b, float %y) {
+; CHECK-LABEL: define float @do_not_fold_select_fma_opposite_sign_different_conditions(
+; CHECK-SAME: i1 [[C0:%.*]], i1 [[C1:%.*]], float [[A:%.*]], float [[B:%.*]], float [[Y:%.*]]) {
+; CHECK-NEXT:    [[A_NEG:%.*]] = fneg float [[A]]
+; CHECK-NEXT:    [[B_NEG:%.*]] = fneg float [[B]]
+; CHECK-NEXT:    [[S0:%.*]] = select i1 [[C0]], float [[A]], float [[A_NEG]]
+; CHECK-NEXT:    [[S1:%.*]] = select i1 [[C1]], float [[B_NEG]], float [[B]]
+; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fma.f32(float [[S0]], float [[S1]], float [[Y]])
+; CHECK-NEXT:    ret float [[RET]]
+;
+  %a.neg = fneg float %a
+  %b.neg = fneg float %b
+  %s0 = select i1 %c0, float %a, float %a.neg
+  %s1 = select i1 %c1, float %b.neg, float %b
+  %ret = call float @llvm.fma.f32(float %s0, float %s1, float %y)
+  ret float %ret
+}
+
+define float @do_not_fold_select_fma_opposite_sign_multiuse(i1 %c, float %a, float %b, float %y) {
+; CHECK-LABEL: define float @do_not_fold_select_fma_opposite_sign_multiuse(
+; CHECK-SAME: i1 [[C:%.*]], float [[A:%.*]], float [[B:%.*]], float [[Y:%.*]]) {
+; CHECK-NEXT:    [[A_NEG:%.*]] = fneg float [[A]]
+; CHECK-NEXT:    [[B_NEG:%.*]] = fneg float [[B]]
+; CHECK-NEXT:    [[S0:%.*]] = select i1 [[C]], float [[A]], float [[A_NEG]]
+; CHECK-NEXT:    [[S1:%.*]] = select i1 [[C]], float [[B_NEG]], float [[B]]
+; CHECK-NEXT:    [[RET:%.*]] = call float @llvm.fma.f32(float [[S0]], float [[S1]], float [[Y]])
+; CHECK-NEXT:    [[USE:%.*]] = fadd float [[RET]], [[S0]]
+; CHECK-NEXT:    ret float [[USE]]
+;
+  %a.neg = fneg float %a
+  %b.neg = fneg float %b
+  %s0 = select i1 %c, float %a, float %a.neg
+  %s1 = select i1 %c, float %b.neg, float %b
+  %ret = call float @llvm.fma.f32(float %s0, float %s1, float %y)
+  %use = fadd float %ret, %s0
+  ret float %use
 }
 
 ;negative tests:
