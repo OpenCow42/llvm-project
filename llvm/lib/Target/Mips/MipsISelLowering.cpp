@@ -4061,6 +4061,17 @@ SDValue MipsTargetLowering::LowerFormalArguments(
       unsigned Reg = addLiveIn(DAG.getMachineFunction(), ArgReg, RC);
       SDValue ArgValue = DAG.getCopyFromReg(Chain, DL, Reg, RegVT);
 
+      // The N32 ABI requires every 32-bit integer argument in a GPR to be
+      // sign-extended to 64 bits. Pointers are 32-bit integer objects too, but
+      // opaque-pointer IR cannot carry the signext parameter attribute. Record
+      // the ABI guarantee so forwarding an incoming pointer to an internal
+      // fastcc tail call does not emit a redundant `sll reg, reg, 0`.
+      if (Subtarget.isR5900() && ABI.IsN32() && RegVT == MVT::i64 &&
+          ValVT == MVT::i32 && Ins[InsIdx].isOrigArg() &&
+          FuncArg->getType()->isPointerTy())
+        ArgValue = DAG.getNode(ISD::AssertSext, DL, RegVT, ArgValue,
+                               DAG.getValueType(ValVT));
+
       ArgValue =
           UnpackFromArgumentSlot(ArgValue, VA, Ins[InsIdx].ArgVT, DL, DAG);
 
