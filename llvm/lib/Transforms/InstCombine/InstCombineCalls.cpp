@@ -2821,6 +2821,32 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       return II;
     }
 
+    // fma (c ? x : -x), (c ? -y : y), z -> fma x, -y, z
+    // fma (c ? -x : x), (c ? y : -y), z -> fma -x, y, z
+    // The product has the same sign and magnitude for either condition.
+    auto *Select0 = dyn_cast<SelectInst>(Src0);
+    auto *Select1 = dyn_cast<SelectInst>(Src1);
+    if (Select0 && Select1 && Select0->hasOneUse() && Select1->hasOneUse() &&
+        Select0->getCondition() == Select1->getCondition()) {
+      Value *NegX, *NegY;
+      if (match(Select0, m_Select(m_Value(), m_Value(X), m_Value(NegX))) &&
+          match(NegX, m_FNeg(m_Specific(X))) &&
+          match(Select1, m_Select(m_Value(), m_Value(NegY), m_Value(Y))) &&
+          match(NegY, m_FNeg(m_Specific(Y)))) {
+        replaceOperand(*II, 0, X);
+        replaceOperand(*II, 1, NegY);
+        return II;
+      }
+      if (match(Select0, m_Select(m_Value(), m_Value(NegX), m_Value(X))) &&
+          match(NegX, m_FNeg(m_Specific(X))) &&
+          match(Select1, m_Select(m_Value(), m_Value(Y), m_Value(NegY))) &&
+          match(NegY, m_FNeg(m_Specific(Y)))) {
+        replaceOperand(*II, 0, NegX);
+        replaceOperand(*II, 1, Y);
+        return II;
+      }
+    }
+
     // fma fabs(x), fabs(x), z -> fma x, x, z
     if (match(Src0, m_FAbs(m_Value(X))) &&
         match(Src1, m_FAbs(m_Specific(X)))) {
